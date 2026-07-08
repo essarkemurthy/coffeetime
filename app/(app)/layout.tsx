@@ -15,6 +15,7 @@ import {
   ScrollText,
 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { OutletProvider, useOutlet } from "@/lib/outlet";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -28,10 +29,40 @@ const NAV = [
   { href: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
+// Shown only when the tenant has more than one outlet.
+function OutletSwitcher({ className }: { className?: string }) {
+  const { outlet, outlets, switchOutlet } = useOutlet();
+  if (outlets.length < 2) return null;
+  return (
+    <select
+      aria-label="Outlet"
+      className={cn(
+        "w-full rounded-lg border border-coffee-300 bg-white px-2 py-2 text-sm font-medium text-coffee-900",
+        className
+      )}
+      value={outlet.id}
+      onChange={(e) => switchOutlet(e.target.value)}
+    >
+      {outlets.map((o) => (
+        <option key={o.id} value={o.id}>{o.name}</option>
+      ))}
+    </select>
+  );
+}
+
 // Bottom tab bar on phones, left sidebar on tablets and up.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <OutletProvider>
+      <AppShell>{children}</AppShell>
+    </OutletProvider>
+  );
+}
+
+function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { outlets } = useOutlet();
 
   async function logout() {
     await getSupabase().auth.signOut();
@@ -48,6 +79,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Coffee className="h-5 w-5" />
           </div>
           <span className="font-semibold text-coffee-900">CoffeeTime</span>
+        </div>
+        <div className={cn("px-2 pt-2", outlets.length < 2 && "hidden")}>
+          <OutletSwitcher />
         </div>
         <nav className="flex-1 space-y-1 p-2">
           {NAV.map(({ href, label, icon: Icon }) => (
@@ -74,8 +108,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       </aside>
 
-      {/* Main content */}
-      <main className="min-w-0 flex-1 pb-20 md:ml-52 md:pb-4">{children}</main>
+      {/* Main content (with an outlet bar on phones for multi-outlet tenants) */}
+      <main className="min-w-0 flex-1 pb-20 md:ml-52 md:pb-4">
+        {outlets.length > 1 && (
+          <div className="border-b border-coffee-200 bg-white p-2 md:hidden">
+            <OutletSwitcher />
+          </div>
+        )}
+        {children}
+      </main>
 
       {/* Bottom tab bar (phones) — first 5 destinations */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-coffee-200 bg-white md:hidden">

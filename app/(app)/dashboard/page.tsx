@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ReceiptIndianRupee, ScrollText, Truck } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatINR, todayISO } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type Stats = {
 
 // Home screen: today at a glance + shortcuts.
 export default function DashboardPage() {
+  const { outlet } = useOutlet();
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
 
@@ -28,11 +30,11 @@ export default function DashboardPage() {
       const supabase = getSupabase();
       const today = todayISO();
       const [sales, saleItems, ingredients, purchases, payments] = await Promise.all([
-        supabase.from("sales").select("total").eq("sale_date", today).eq("is_active", true),
-        supabase.from("sale_items").select("item_name, quantity, line_total, sales!inner(sale_date)").eq("sales.sale_date", today),
-        supabase.from("ingredients").select("name, current_stock, low_stock_threshold").eq("is_active", true),
-        supabase.from("purchases").select("id, total_amount").eq("is_active", true).neq("status", "paid"),
-        supabase.from("purchase_payments").select("purchase_id, amount"),
+        supabase.from("sales").select("total").eq("outlet_id", outlet.id).eq("sale_date", today).eq("is_active", true),
+        supabase.from("sale_items").select("item_name, quantity, line_total, sales!inner(sale_date)").eq("outlet_id", outlet.id).eq("sales.sale_date", today),
+        supabase.from("ingredients").select("name, current_stock, low_stock_threshold").eq("outlet_id", outlet.id).eq("is_active", true),
+        supabase.from("purchases").select("id, total_amount").eq("outlet_id", outlet.id).eq("is_active", true).neq("status", "paid"),
+        supabase.from("purchase_payments").select("purchase_id, amount").eq("outlet_id", outlet.id),
       ]);
       if (sales.error || saleItems.error || ingredients.error || purchases.error) {
         setError("Could not load today's numbers. Please check your internet and refresh.");
@@ -73,7 +75,7 @@ export default function DashboardPage() {
       });
     }
     load();
-  }, []);
+  }, [outlet.id]);
 
   if (error) return <p className="m-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>;
   if (!stats) return <PageLoader label="Loading your shop…" />;

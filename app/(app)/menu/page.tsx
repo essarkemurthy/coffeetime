@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, EyeOff, Eye } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatINR } from "@/lib/format";
 import { GST_RATES, type Category, type Item } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ type ItemForm = { id?: string; name: string; price: string; gst_percent: string;
 const emptyItem = (categoryId: string): ItemForm => ({ name: "", price: "", gst_percent: "5", category_id: categoryId });
 
 export default function MenuPage() {
+  const { tenantId, outlet } = useOutlet();
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [activeCat, setActiveCat] = useState<string>("");
@@ -39,8 +41,8 @@ export default function MenuPage() {
     setError("");
     const supabase = getSupabase();
     const [cats, its] = await Promise.all([
-      supabase.from("categories").select("*").order("sort_order"),
-      supabase.from("items").select("*").order("name"),
+      supabase.from("categories").select("*").eq("outlet_id", outlet.id).order("sort_order"),
+      supabase.from("items").select("*").eq("outlet_id", outlet.id).order("name"),
     ]);
     if (cats.error || its.error) {
       setError("Could not load the menu. Please check your internet and refresh.");
@@ -50,7 +52,7 @@ export default function MenuPage() {
       setActiveCat((prev) => prev || (cats.data?.[0]?.id ?? ""));
     }
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();
@@ -72,10 +74,9 @@ export default function MenuPage() {
     if (catForm.id) {
       ({ error: err } = await supabase.from("categories").update({ name: catForm.name.trim() }).eq("id", catForm.id));
     } else {
-      const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
       ({ error: err } = await supabase.from("categories").insert({
-        tenant_id: ctx?.tenant_id,
-        outlet_id: ctx?.id,
+        tenant_id: tenantId,
+        outlet_id: outlet.id,
         name: catForm.name.trim(),
         sort_order: categories.length + 1,
       }));
@@ -104,8 +105,7 @@ export default function MenuPage() {
     if (itemForm.id) {
       ({ error: err } = await supabase.from("items").update(payload).eq("id", itemForm.id));
     } else {
-      const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
-      ({ error: err } = await supabase.from("items").insert({ ...payload, tenant_id: ctx?.tenant_id, outlet_id: ctx?.id }));
+      ({ error: err } = await supabase.from("items").insert({ ...payload, tenant_id: tenantId, outlet_id: outlet.id }));
     }
     setSaving(false);
     if (err) {
@@ -122,14 +122,13 @@ export default function MenuPage() {
     setSaving(true);
     setError("");
     const supabase = getSupabase();
-    const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
     const rows = bulkText
       .split("\n")
       .map((line) => line.split(",").map((s) => s.trim()))
       .filter((parts) => parts[0] && !isNaN(Number(parts[1])))
       .map((parts) => ({
-        tenant_id: ctx?.tenant_id,
-        outlet_id: ctx?.id,
+        tenant_id: tenantId,
+        outlet_id: outlet.id,
         category_id: activeCat,
         name: parts[0],
         price: Number(parts[1]),

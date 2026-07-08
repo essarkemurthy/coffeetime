@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Pencil, Phone, Plus, ReceiptText } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatINR } from "@/lib/format";
 import type { Vendor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ const emptyForm: VendorForm = { name: "", phone: "", gstin: "", notes: "" };
 
 // Vendor master + pending dues per vendor (computed from purchases/payments).
 export default function VendorsPage() {
+  const { tenantId, outlet } = useOutlet();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [dues, setDues] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -32,9 +34,9 @@ export default function VendorsPage() {
     setError("");
     const supabase = getSupabase();
     const [v, p, pay] = await Promise.all([
-      supabase.from("vendors").select("*").eq("is_active", true).order("name"),
-      supabase.from("purchases").select("id, vendor_id, total_amount").eq("is_active", true),
-      supabase.from("purchase_payments").select("purchase_id, amount"),
+      supabase.from("vendors").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("name"),
+      supabase.from("purchases").select("id, vendor_id, total_amount").eq("outlet_id", outlet.id).eq("is_active", true),
+      supabase.from("purchase_payments").select("purchase_id, amount").eq("outlet_id", outlet.id),
     ]);
     if (v.error || p.error || pay.error) {
       setError("Could not load vendors. Please check your internet and refresh.");
@@ -53,7 +55,7 @@ export default function VendorsPage() {
     setVendors((v.data as Vendor[]) ?? []);
     setDues(dueByVendor);
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();
@@ -73,8 +75,7 @@ export default function VendorsPage() {
     if (form.id) {
       ({ error: err } = await supabase.from("vendors").update(payload).eq("id", form.id));
     } else {
-      const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
-      ({ error: err } = await supabase.from("vendors").insert({ ...payload, tenant_id: ctx?.tenant_id, outlet_id: ctx?.id }));
+      ({ error: err } = await supabase.from("vendors").insert({ ...payload, tenant_id: tenantId, outlet_id: outlet.id }));
     }
     setSaving(false);
     if (err) {

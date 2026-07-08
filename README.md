@@ -25,11 +25,17 @@ Works in the browser on an Android tablet and a phone.
 
 1. Go to [supabase.com](https://supabase.com) → **New project** (free plan is fine).
    Pick the **Mumbai (ap-south-1)** region.
-2. In the dashboard open **SQL Editor** and run these three files from this
+2. In the dashboard open **SQL Editor** and run these files from this
    repo, **in order** (copy-paste each one and press Run):
    1. `supabase/migrations/0001_schema.sql` — tables + security rules
    2. `supabase/migrations/0002_functions.sql` — billing/stock logic
    3. `supabase/migrations/0003_seed.sql` — your shop + sample menu & ingredients
+   4. `supabase/migrations/0004_multi_outlet_functions.sql` — outlet-aware billing/stock logic
+   5. `supabase/migrations/0005_demo_customer.sql` — *optional*: a demo
+      customer ("Brew Bros") with **two outlets** and two weeks of sales,
+      purchases and expenses, to see multi-outlet dashboards in action.
+      Skip it if you don't want demo data (removal SQL is at the bottom
+      of the file if you add it and change your mind).
 3. (Optional) Edit the shop name/address in `0003_seed.sql` before running,
    or later in the `outlets` table via **Table Editor**.
 4. In **Authentication → Providers → Email**, keep Email enabled. In
@@ -85,9 +91,26 @@ app/
   (app)/expenses/   Expense entry
   (app)/reports/    Date-range reports + CSV export
 components/ui/      Reusable buttons, inputs, dialogs (shadcn-style)
-lib/                Supabase clients, ₹/date formatting, types
+lib/                Supabase clients, outlet context, ₹/date formatting, types
 supabase/migrations Database schema, functions, seed data
+supabase/tests/     Database smoke tests (run on plain local PostgreSQL)
 ```
+
+## Multiple outlets
+
+The schema and app already support a tenant with several outlets: when the
+logged-in user's shop has more than one outlet, an **outlet switcher**
+appears in the navigation and every screen (billing, stock, vendors,
+dashboard, reports) shows only the selected outlet. Bill numbers, stock and
+dues are tracked per outlet. Single-outlet shops never see any of this.
+
+## Testing the database logic
+
+`bash supabase/tests/run_local.sh` creates a throwaway database on a local
+PostgreSQL, applies every migration, and runs `01_smoke_test.sql` — GST
+math, daily bill numbering, menu-edit snapshots, stock movements, purchase
+payment statuses, cross-tenant isolation (RLS) and cross-outlet isolation
+are all asserted. "ALL SMOKE TESTS PASSED" means everything works.
 
 ## Phase 2 (already supported by the schema, not built yet)
 

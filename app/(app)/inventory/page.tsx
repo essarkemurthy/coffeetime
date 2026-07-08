@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Pencil, Plus } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatDateTime, formatINR } from "@/lib/format";
 import { UNITS, type Ingredient, type StockMovement } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ type IngredientForm = {
 const emptyForm: IngredientForm = { name: "", unit: "kg", current_stock: "0", low_stock_threshold: "0", cost_per_unit: "0" };
 
 export default function InventoryPage() {
+  const { tenantId, outlet } = useOutlet();
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [movements, setMovements] = useState<(StockMovement & { ingredients: { name: string; unit: string } })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,10 +46,11 @@ export default function InventoryPage() {
     setError("");
     const supabase = getSupabase();
     const [ing, mov] = await Promise.all([
-      supabase.from("ingredients").select("*").eq("is_active", true).order("name"),
+      supabase.from("ingredients").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("name"),
       supabase
         .from("stock_movements")
         .select("*, ingredients(name, unit)")
+        .eq("outlet_id", outlet.id)
         .order("created_at", { ascending: false })
         .limit(15),
     ]);
@@ -58,7 +61,7 @@ export default function InventoryPage() {
       setMovements((mov.data as typeof movements) ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();
@@ -78,12 +81,11 @@ export default function InventoryPage() {
     if (form.id) {
       ({ error: err } = await supabase.from("ingredients").update(payload).eq("id", form.id));
     } else {
-      const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
       ({ error: err } = await supabase.from("ingredients").insert({
         ...payload,
         current_stock: Number(form.current_stock) || 0,
-        tenant_id: ctx?.tenant_id,
-        outlet_id: ctx?.id,
+        tenant_id: tenantId,
+        outlet_id: outlet.id,
       }));
     }
     setSaving(false);
@@ -105,6 +107,7 @@ export default function InventoryPage() {
       p_type: type,
       p_quantity: Number(moveQty),
       p_note: moveNote.trim() || null,
+      p_outlet_id: outlet.id,
     });
     setSaving(false);
     if (err) {

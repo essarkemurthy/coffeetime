@@ -25,17 +25,18 @@ export default function BillPage() {
   useEffect(() => {
     async function load() {
       const supabase = getSupabase();
-      const [s, li, o] = await Promise.all([
-        supabase.from("sales").select("*").eq("id", id).single(),
+      // The bill header shows the outlet that made the sale.
+      const [s, li] = await Promise.all([
+        supabase.from("sales").select("*, outlets(id, name, address, gstin, phone)").eq("id", id).single(),
         supabase.from("sale_items").select("*").eq("sale_id", id).order("item_name"),
-        supabase.from("outlets").select("*").limit(1).single(),
       ]);
       if (s.error || li.error) {
         setError("Could not load this bill.");
       } else {
-        setSale(s.data as Sale);
+        const { outlets: saleOutlet, ...saleRow } = s.data as Sale & { outlets: Outlet | null };
+        setSale(saleRow as Sale);
         setLines((li.data as SaleItem[]) ?? []);
-        setOutlet((o.data as Outlet) ?? null);
+        setOutlet(saleOutlet);
       }
       setLoading(false);
     }

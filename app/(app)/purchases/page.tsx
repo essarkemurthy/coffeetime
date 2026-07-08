@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatDate, formatINR, todayISO } from "@/lib/format";
 import type { Purchase } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const STATUS_BADGE: Record<Purchase["status"], "success" | "warning" | "danger">
 // Purchase bills with paid/partial/pending status, sorted oldest-due first,
 // plus a dialog to record payments against a bill.
 export default function PurchasesPage() {
+  const { outlet } = useOutlet();
   const [rows, setRows] = useState<PurchaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,9 +45,10 @@ export default function PurchasesPage() {
       supabase
         .from("purchases")
         .select("*, vendors(name)")
+        .eq("outlet_id", outlet.id)
         .eq("is_active", true)
         .order("bill_date", { ascending: true }),
-      supabase.from("purchase_payments").select("purchase_id, amount"),
+      supabase.from("purchase_payments").select("purchase_id, amount").eq("outlet_id", outlet.id),
     ]);
     if (p.error || pay.error) {
       setError("Could not load purchases. Please check your internet and refresh.");
@@ -71,7 +74,7 @@ export default function PurchasesPage() {
     });
     setRows(list);
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();

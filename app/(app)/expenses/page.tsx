@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatDate, formatINR, monthStartISO, todayISO } from "@/lib/format";
 import { EXPENSE_CATEGORIES, type Expense } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const LABELS: Record<string, string> = {
 
 // Shop expenses for the current month, with quick add.
 export default function ExpensesPage() {
+  const { tenantId, outlet } = useOutlet();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,6 +38,7 @@ export default function ExpensesPage() {
     const { data, error: err } = await getSupabase()
       .from("expenses")
       .select("*")
+      .eq("outlet_id", outlet.id)
       .eq("is_active", true)
       .gte("expense_date", monthStartISO())
       .order("expense_date", { ascending: false });
@@ -45,7 +48,7 @@ export default function ExpensesPage() {
       setExpenses((data as Expense[]) ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();
@@ -55,10 +58,9 @@ export default function ExpensesPage() {
     e.preventDefault();
     setSaving(true);
     const supabase = getSupabase();
-    const { data: ctx } = await supabase.from("outlets").select("id, tenant_id").limit(1).single();
     const { error: err } = await supabase.from("expenses").insert({
-      tenant_id: ctx?.tenant_id,
-      outlet_id: ctx?.id,
+      tenant_id: tenantId,
+      outlet_id: outlet.id,
       category: form.category,
       amount: Number(form.amount),
       expense_date: form.expense_date,

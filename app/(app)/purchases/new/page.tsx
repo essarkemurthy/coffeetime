@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatINR, todayISO } from "@/lib/format";
 import type { Ingredient, Vendor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type Line = { ingredient_id: string; quantity: string; rate: string };
 // what was paid right away. Stock updates automatically.
 export default function NewPurchasePage() {
   const router = useRouter();
+  const { outlet } = useOutlet();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,8 +39,8 @@ export default function NewPurchasePage() {
     async function load() {
       const supabase = getSupabase();
       const [v, ing] = await Promise.all([
-        supabase.from("vendors").select("*").eq("is_active", true).order("name"),
-        supabase.from("ingredients").select("*").eq("is_active", true).order("name"),
+        supabase.from("vendors").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("name"),
+        supabase.from("ingredients").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("name"),
       ]);
       if (v.error || ing.error) {
         setError("Could not load vendors/ingredients. Please refresh.");
@@ -49,7 +51,7 @@ export default function NewPurchasePage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [outlet.id]);
 
   const total = useMemo(
     () => lines.reduce((s, l) => s + (Number(l.quantity) || 0) * (Number(l.rate) || 0), 0),
@@ -86,6 +88,7 @@ export default function NewPurchasePage() {
       })),
       p_paid_amount: Number(paidAmount) || 0,
       p_payment_mode: payMode,
+      p_outlet_id: outlet.id,
     });
     setSaving(false);
     if (err) {

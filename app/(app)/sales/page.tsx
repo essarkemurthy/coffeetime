@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatDate, formatDateTime, formatINR, todayISO } from "@/lib/format";
 import type { Sale } from "@/lib/types";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { PageLoader } from "@/components/ui/spinner";
 
 // List of bills for a chosen day (defaults to today).
 export default function SalesPage() {
+  const { outlet } = useOutlet();
   const [date, setDate] = useState(todayISO());
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +26,7 @@ export default function SalesPage() {
     const { data, error: err } = await getSupabase()
       .from("sales")
       .select("*")
+      .eq("outlet_id", outlet.id)
       .eq("sale_date", d)
       .order("bill_number", { ascending: false });
     if (err) {
@@ -32,7 +35,7 @@ export default function SalesPage() {
       setSales((data as Sale[]) ?? []);
     }
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load(date);

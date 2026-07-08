@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatDate, formatINR, monthStartISO, todayISO } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ const TABS = ["Sales", "Items", "Payments", "P&L"] as const;
 
 // Date-range reports with CSV export.
 export default function ReportsPage() {
+  const { outlet } = useOutlet();
   const [from, setFrom] = useState(monthStartISO());
   const [to, setTo] = useState(todayISO());
   const [tab, setTab] = useState<(typeof TABS)[number]>("Sales");
@@ -35,13 +37,13 @@ export default function ReportsPage() {
     const supabase = getSupabase();
     const [s, si, p, e] = await Promise.all([
       supabase.from("sales").select("sale_date, subtotal, gst_amount, discount, total, payment_mode")
-        .eq("is_active", true).gte("sale_date", from).lte("sale_date", to),
+        .eq("outlet_id", outlet.id).eq("is_active", true).gte("sale_date", from).lte("sale_date", to),
       supabase.from("sale_items").select("item_name, quantity, line_total, sales!inner(sale_date, is_active)")
-        .eq("sales.is_active", true).gte("sales.sale_date", from).lte("sales.sale_date", to),
+        .eq("outlet_id", outlet.id).eq("sales.is_active", true).gte("sales.sale_date", from).lte("sales.sale_date", to),
       supabase.from("purchases").select("total_amount")
-        .eq("is_active", true).gte("bill_date", from).lte("bill_date", to),
+        .eq("outlet_id", outlet.id).eq("is_active", true).gte("bill_date", from).lte("bill_date", to),
       supabase.from("expenses").select("amount")
-        .eq("is_active", true).gte("expense_date", from).lte("expense_date", to),
+        .eq("outlet_id", outlet.id).eq("is_active", true).gte("expense_date", from).lte("expense_date", to),
     ]);
     if (s.error || si.error || p.error || e.error) {
       setError("Could not load the report. Please check your internet and try again.");
@@ -52,7 +54,7 @@ export default function ReportsPage() {
       setExpenseTotal((e.data ?? []).reduce((sum, x) => sum + Number(x.amount), 0));
     }
     setLoading(false);
-  }, [from, to]);
+  }, [from, to, outlet.id]);
 
   useEffect(() => {
     load();

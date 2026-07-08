@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useOutlet } from "@/lib/outlet";
 import { formatINR } from "@/lib/format";
 import type { Category, Item } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ const PAYMENT_MODES = ["cash", "upi", "card", "mixed"] as const;
 
 export default function POSPage() {
   const router = useRouter();
+  const { outlet } = useOutlet();
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [activeCat, setActiveCat] = useState("");
@@ -31,8 +33,8 @@ export default function POSPage() {
   const load = useCallback(async () => {
     const supabase = getSupabase();
     const [cats, its] = await Promise.all([
-      supabase.from("categories").select("*").eq("is_active", true).order("sort_order"),
-      supabase.from("items").select("*").eq("is_active", true).order("name"),
+      supabase.from("categories").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("sort_order"),
+      supabase.from("items").select("*").eq("outlet_id", outlet.id).eq("is_active", true).order("name"),
     ]);
     if (cats.error || its.error) {
       setError("Could not load the menu. Please check your internet and refresh.");
@@ -42,7 +44,7 @@ export default function POSPage() {
       setActiveCat((prev) => prev || (cats.data?.[0]?.id ?? ""));
     }
     setLoading(false);
-  }, []);
+  }, [outlet.id]);
 
   useEffect(() => {
     load();
@@ -81,6 +83,7 @@ export default function POSPage() {
       p_items: cart.map((l) => ({ item_id: l.item.id, quantity: l.quantity })),
       p_discount: discountNum,
       p_payment_mode: paymentMode,
+      p_outlet_id: outlet.id,
     });
     setPlacing(false);
     if (err || !data?.sale_id) {
