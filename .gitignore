@@ -225,3 +225,8 @@ out/
 .env*.local
 next-env.d.ts
 *.tsbuildinfo
+
+# This is a Next.js app — track the lib/ source directory
+# (the Python packaging entries above would otherwise ignore it)
+!lib/
+!lib/**
