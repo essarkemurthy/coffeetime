@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-coffee-50 text-gray-900;
+}
+
+/* Thermal-printer-friendly bill: when printing, show ONLY the bill. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-bill,
+  #print-bill * {
+    visibility: visible;
+  }
+  #print-bill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 72mm; /* 3-inch thermal roll */
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    color: #000;
+  }
+}
