@@ -11,9 +11,13 @@ Works in the browser on an Android tablet and a phone.
 - **GST:** every item has a GST % (0/5/12/18). Menu prices are
   **GST-inclusive** — the price you type is what the customer pays; the
   bill shows the GST breakup automatically.
-- **Multi-tenant ready:** every table has `tenant_id` and `outlet_id`.
-  Today one tenant + one outlet is seeded and all multi-tenant UI is
-  hidden. New shop owners can be onboarded later with **no schema change**.
+- **Multi-tenant platform:** every table has `tenant_id` and `outlet_id`,
+  isolation is enforced by row-level security, and access is **invite-only**.
+  Onboard a new client shop with one SQL call — see
+  [`docs/PLATFORM_GUIDE.md`](docs/PLATFORM_GUIDE.md).
+- **Roles:** owners manage staff from the in-app **Staff** page; managers
+  run the shop; cashiers can only bill and view sales (enforced in the
+  database, not just the UI).
 - **Soft delete everywhere:** items, vendors, etc. are hidden with
   `is_active` flags — your data is never destroyed.
 - Old bills never change when you edit the menu (name/price/GST are
@@ -25,16 +29,34 @@ Works in the browser on an Android tablet and a phone.
 
 1. Go to [supabase.com](https://supabase.com) → **New project** (free plan is fine).
    Pick the **Mumbai (ap-south-1)** region.
-2. In the dashboard open **SQL Editor** and run these three files from this
+2. In the dashboard open **SQL Editor** and run these four files from this
    repo, **in order** (copy-paste each one and press Run):
    1. `supabase/migrations/0001_schema.sql` — tables + security rules
    2. `supabase/migrations/0002_functions.sql` — billing/stock logic
-   3. `supabase/migrations/0003_seed.sql` — your shop + sample menu & ingredients
-3. (Optional) Edit the shop name/address in `0003_seed.sql` before running,
-   or later in the `outlets` table via **Table Editor**.
+   3. `supabase/migrations/0003_seed.sql` — a sample shop with menu & ingredients
+      *(optional — skip it if you'd rather start clean with step 3 below)*
+   4. `supabase/migrations/0004_platform.sql` — invites, roles, client onboarding
+3. Create your shop and invite yourself as its owner. In the SQL Editor run
+   **one** of these:
+   - If you ran the seed file, link your email to the sample shop:
+
+     ```sql
+     insert into public.invites (tenant_id, outlet_id, email, role)
+     values ('11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222',
+             'you@example.com', 'owner');
+     ```
+
+   - Or create a clean shop with your real details:
+
+     ```sql
+     select public.provision_client('My Coffee Shop', 'you@example.com');
+     ```
+
 4. In **Authentication → Providers → Email**, keep Email enabled. In
    **Authentication → Email Templates → Magic Link / OTP**, no change needed —
-   the app uses the 6-digit code.
+   the app uses the 6-digit code. Leave sign-ups enabled: logging in is open,
+   but only invited emails can reach a shop's data.
 
 ### 2. Run locally (optional, for testing on your computer)
 
@@ -62,8 +84,9 @@ Your Supabase URL and anon key are in **Project Settings → API**.
    code, and use the browser menu → **Add to Home screen** so it opens like
    an app.
 
-The **first person to log in** is automatically linked to your shop as the
-owner (a database trigger does this).
+Log in with the email you invited in setup step 3 — it links to your shop
+as the owner automatically. Add cashiers and managers later from the
+in-app **Staff** page.
 
 ## Daily use
 
@@ -84,12 +107,21 @@ app/
   (app)/purchases/  Purchase bills + payments
   (app)/expenses/   Expense entry
   (app)/reports/    Date-range reports + CSV export
+  (app)/staff/      Invite staff, roles, on/off (owner only)
 components/ui/      Reusable buttons, inputs, dialogs (shadcn-style)
 lib/                Supabase clients, ₹/date formatting, types
 supabase/migrations Database schema, functions, seed data
 ```
 
+## Hosting it for other shops
+
+One deployment can serve many client shops — onboarding a client is a
+single SQL call, and each shop only ever sees its own data. See
+[`docs/PLATFORM_GUIDE.md`](docs/PLATFORM_GUIDE.md) for onboarding,
+roles, and switching a client off.
+
 ## Phase 2 (already supported by the schema, not built yet)
 
-Multi-tenant onboarding UI, subscriptions, recipe-based automatic stock
-deduction, more roles/permissions per user.
+Subscription billing for clients, a web admin panel for onboarding
+(SQL Editor for now), recipe-based automatic stock deduction, multiple
+outlets per shop.

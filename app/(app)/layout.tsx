@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -13,31 +14,98 @@ import {
   BarChart3,
   LogOut,
   ScrollText,
+  Users,
 } from "lucide-react";
 import { getSupabase } from "@/lib/supabase/client";
+import { useAppUser, type AppUserStatus } from "@/lib/use-app-user";
+import type { Role } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageLoader } from "@/components/ui/spinner";
 
 const NAV = [
-  { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/pos", label: "Billing", icon: ReceiptIndianRupee },
-  { href: "/sales", label: "Sales", icon: ScrollText },
-  { href: "/menu", label: "Menu", icon: UtensilsCrossed },
-  { href: "/inventory", label: "Stock", icon: Boxes },
-  { href: "/vendors", label: "Vendors", icon: Truck },
-  { href: "/expenses", label: "Expenses", icon: Wallet },
-  { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/dashboard", label: "Home", icon: LayoutDashboard, roles: ["owner", "manager"] },
+  { href: "/pos", label: "Billing", icon: ReceiptIndianRupee, roles: ["owner", "manager", "cashier"] },
+  { href: "/sales", label: "Sales", icon: ScrollText, roles: ["owner", "manager", "cashier"] },
+  { href: "/menu", label: "Menu", icon: UtensilsCrossed, roles: ["owner", "manager"] },
+  { href: "/inventory", label: "Stock", icon: Boxes, roles: ["owner", "manager"] },
+  { href: "/vendors", label: "Vendors", icon: Truck, roles: ["owner", "manager"] },
+  { href: "/expenses", label: "Expenses", icon: Wallet, roles: ["owner", "manager"] },
+  { href: "/reports", label: "Reports", icon: BarChart3, roles: ["owner", "manager"] },
+  { href: "/staff", label: "Staff", icon: Users, roles: ["owner"] },
 ];
+
+// Route prefixes each role may open (NAV plus pages reached from
+// within, like /purchases and /sales/[id]).
+const ALLOWED_PREFIXES: Record<Role, string[]> = {
+  owner: ["/dashboard", "/pos", "/sales", "/menu", "/inventory", "/vendors", "/purchases", "/expenses", "/reports", "/staff"],
+  manager: ["/dashboard", "/pos", "/sales", "/menu", "/inventory", "/vendors", "/purchases", "/expenses", "/reports"],
+  cashier: ["/pos", "/sales"],
+};
+
+const BLOCKED_MESSAGES: Partial<Record<AppUserStatus, { title: string; body: string }>> = {
+  "no-invite": {
+    title: "No shop linked to this email yet",
+    body: "You're signed in, but this email hasn't been invited to any shop. Ask your shop owner (or your provider) to send an invite to this exact email, then log in again.",
+  },
+  "user-disabled": {
+    title: "This account has been switched off",
+    body: "Your access to the shop was turned off. Please talk to your shop owner.",
+  },
+  "tenant-disabled": {
+    title: "This shop's account is not active",
+    body: "The shop's subscription is currently switched off. Please contact your provider to reactivate it.",
+  },
+};
 
 // Bottom tab bar on phones, left sidebar on tablets and up.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { status, user } = useAppUser();
+
+  const role = user?.role;
+  const allowed = role ? ALLOWED_PREFIXES[role].some((p) => pathname.startsWith(p)) : false;
+
+  useEffect(() => {
+    if (status === "ready" && !allowed) {
+      router.replace(role === "cashier" ? "/pos" : "/dashboard");
+    }
+  }, [status, allowed, role, router]);
 
   async function logout() {
     await getSupabase().auth.signOut();
     router.push("/login");
     router.refresh();
   }
+
+  if (status === "loading") return <PageLoader label="Loading…" />;
+
+  const blocked = BLOCKED_MESSAGES[status];
+  if (blocked) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="space-y-4 p-6 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-coffee-700 text-white">
+              <Coffee className="h-7 w-7" />
+            </div>
+            <h1 className="text-lg font-semibold text-coffee-900">{blocked.title}</h1>
+            <p className="text-sm text-gray-600">{blocked.body}</p>
+            <Button variant="outline" className="w-full" onClick={logout}>
+              <LogOut className="h-4 w-4" /> Log out
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  // Redirecting away from a page this role can't open.
+  if (!allowed) return <PageLoader label="Loading…" />;
+
+  const nav = NAV.filter((n) => role && n.roles.includes(role));
 
   return (
     <div className="flex min-h-screen">
@@ -50,7 +118,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="font-semibold text-coffee-900">CoffeeTime</span>
         </div>
         <nav className="flex-1 space-y-1 p-2">
-          {NAV.map(({ href, label, icon: Icon }) => (
+          {nav.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -79,7 +147,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom tab bar (phones) — first 5 destinations */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-coffee-200 bg-white md:hidden">
-        {NAV.slice(0, 5).map(({ href, label, icon: Icon }) => (
+        {nav.slice(0, 5).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

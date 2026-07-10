@@ -86,6 +86,26 @@ export type Expense = {
   note: string | null;
 };
 
+export type Role = "owner" | "manager" | "cashier";
+
+export type AppUser = {
+  id: string;
+  tenant_id: string;
+  outlet_id: string;
+  name: string;
+  role: Role;
+  is_active: boolean;
+};
+
+export type Invite = {
+  id: string;
+  email: string;
+  role: Role;
+  is_active: boolean;
+  accepted_at: string | null;
+  created_at: string;
+};
+
 export type Outlet = {
   id: string;
   name: string;
@@ -97,3 +117,9 @@ export type Outlet = {
 export const GST_RATES = [0, 5, 12, 18] as const;
 export const UNITS = ["kg", "g", "L", "ml", "pcs", "pkt"] as const;
 export const EXPENSE_CATEGORIES = ["rent", "salary", "electricity", "maintenance", "misc"] as const;
+export const ROLES = ["owner", "manager", "cashier"] as const;
+export const ROLE_LABELS: Record<Role, string> = {
+  owner: "Owner",
+  manager: "Manager",
+  cashier: "Cashier",
+};
