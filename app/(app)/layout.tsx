@@ -57,19 +57,29 @@ const BLOCKED_MESSAGES: Partial<Record<AppUserStatus, { title: string; body: str
     title: "This shop's account is not active",
     body: "The shop's subscription is currently switched off. Please contact your provider to reactivate it.",
   },
+  "not-configured": {
+    title: "App is not connected to the database",
+    body: "The NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables are missing from this deployment. Add them in Vercel → Settings → Environment Variables (or in .env.local when running locally), then redeploy.",
+  },
+  error: {
+    title: "Could not reach the database",
+    body: "Please check your internet connection and try again. If this keeps happening, verify that the Supabase URL and anon key configured for this deployment are correct.",
+  },
 };
 
 // Bottom tab bar on phones, left sidebar on tablets and up.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { status, user } = useAppUser();
+  const { status, user, retry } = useAppUser();
 
   const role = user?.role;
   const allowed = role ? ALLOWED_PREFIXES[role].some((p) => pathname.startsWith(p)) : false;
 
   useEffect(() => {
-    if (status === "ready" && !allowed) {
+    if (status === "signed-out") {
+      router.replace("/login");
+    } else if (status === "ready" && !allowed) {
       router.replace(role === "cashier" ? "/pos" : "/dashboard");
     }
   }, [status, allowed, role, router]);
@@ -80,7 +90,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     router.refresh();
   }
 
-  if (status === "loading") return <PageLoader label="Loading…" />;
+  if (status === "loading" || status === "signed-out") return <PageLoader label="Loading…" />;
 
   const blocked = BLOCKED_MESSAGES[status];
   if (blocked) {
@@ -93,9 +103,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             <h1 className="text-lg font-semibold text-coffee-900">{blocked.title}</h1>
             <p className="text-sm text-gray-600">{blocked.body}</p>
-            <Button variant="outline" className="w-full" onClick={logout}>
-              <LogOut className="h-4 w-4" /> Log out
-            </Button>
+            {status === "error" && (
+              <Button className="w-full" onClick={retry}>Try again</Button>
+            )}
+            {status !== "not-configured" && (
+              <Button variant="outline" className="w-full" onClick={logout}>
+                <LogOut className="h-4 w-4" /> Log out
+              </Button>
+            )}
           </CardContent>
         </Card>
       </main>
